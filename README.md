@@ -1,113 +1,259 @@
 # Webhook Commander
 
-This project provides a Fabric mod that makes it easy to run Minecraft commands from external services.
+A Minecraft 1.21.4 Fabric mod that opens an HTTP webhook server to receive and execute commands via JSON requests. Perfect for TikTok, Twitch, or any external integration!
 
-If you only want to use the mod (no development needed):
+## Features
 
-1. Open the Releases page in your web browser:
+- **HTTP Webhook Server**: Opens an HTTP server on a configurable port (default: 8080)
+- **Command Execution**: Executes Minecraft commands received via POST requests
+- **CORS Support**: Allows cross-origin requests for browser-based integrations
+- **Optional Authentication**: Secure your webhook with a Bearer token
+- **Health Check Endpoint**: Monitor server status at `/health`
+- **In-Game Commands**: `/tiktok` command for debugging and status
+- **Mod Menu Support**: Visual configuration via Mod Menu + Cloth Config
 
-    https://github.com/tmih06/TiktokIntegration/releases
+## Installation
 
-2. Download the newest JAR file from the latest release (click the release, then the file under "Assets").
+### Requirements
+- Minecraft 1.21.4
+- Fabric Loader 0.16.10+
+- Fabric API
+- Java 21+
+- (Optional) Mod Menu + Cloth Config for visual config screen
 
-3. Place the downloaded JAR into your Minecraft server's `mods` folder. If you run Minecraft locally with Fabric, put it in the instance's `mods` folder instead.
+### Steps
+1. Download the mod JAR from releases (or build with `./gradlew build`)
+2. Copy `webhook-commander-1.0.0.jar` from `build/libs/` to your `mods/` folder
+3. Install Fabric API for Minecraft 1.21.4
+4. (Optional) Install Mod Menu and Cloth Config for visual configuration
+5. Start your Minecraft server or singleplayer world
 
-4. Start or restart your server/game. The mod will create a small config file at `config/webhook_commander.json` on first run.
+## Configuration
 
-That is all — the mod will listen on a port and accept requests. If you need to change the port or add a token for security, open `config/webhook_commander.json` with any text editor and edit `port` or `authToken`.
+### Config File
+On first run, the mod creates `config/webhook_commander.json`:
 
-Need help or want to report a problem? Open an issue on the repository: https://github.com/tmih06/TiktokIntegration/issues
+```json
+{
+  "port": 8080,
+  "authToken": ""
+}
+```
 
-License: MIT
+| Option | Default | Description |
+|--------|---------|-------------|
+| `port` | `8080` | The port the webhook server listens on |
+| `authToken` | `""` | Optional authentication token. If set, requests must include `Authorization: Bearer <token>` header |
 
----
+### Mod Menu (Visual Config)
+If you have Mod Menu and Cloth Config installed, you can configure the mod visually:
+1. Open Mod Menu (default key: usually in the pause menu)
+2. Find "Webhook Commander" and click the config button
+3. Adjust settings and click "Save"
 
-Developer guide
+> **Note**: Changing the port requires a server restart to take effect.
 
-This section is for developers who want to build, run or release the project.
+## In-Game Commands
 
-Prerequisites
+All commands require OP level 2 or higher.
 
--   Java 21 (or newer) installed and `java` on your PATH.
--   Git and the Gradle wrapper are included in the repo; no global Gradle install required.
--   An IDE that supports Gradle (IntelliJ IDEA recommended).
+| Command | Description |
+|---------|-------------|
+| `/tiktok debug true` | Enable verbose debug logging |
+| `/tiktok debug false` | Disable debug logging |
+| `/tiktok debug` | Check current debug status |
+| `/tiktok status` | Show port, auth, and debug status |
+| `/tiktok test` | Test if webhook server is running |
 
-Common tasks
+## API Usage
 
--   Build the mod (produce JAR):
+### Execute Command Endpoint
 
-    ```bash
-    ./gradlew clean build
-    ```
+**POST** `/execute`
 
--   Build artifacts only (assemble):
+Send a command to be executed in the Minecraft world.
 
-    ```bash
-    ./gradlew assemble
-    ```
+#### Request
+```json
+{
+  "command": "/say Hello from TikTok!"
+}
+```
 
--   Run Minecraft client for development (uses Fabric Loom tasks):
+The leading slash in the command is optional.
 
-    ```bash
-    ./gradlew runClient
-    ```
+#### Success Response (200)
+```json
+{
+  "success": true,
+  "message": "Command executed successfully",
+  "result": 1
+}
+```
 
--   Run a dedicated server for testing:
+#### Error Response (400/500)
+```json
+{
+  "success": false,
+  "message": "Error description"
+}
+```
 
-    ```bash
-    ./gradlew runServer
-    ```
+### Health Check Endpoint
 
-IDE setup
+**GET** `/health`
 
--   Open the project as a Gradle project in your IDE. Import Gradle project files and allow the IDE to download dependencies.
--   Configure project SDK to Java 21.
+Returns the server status.
 
-Configuration
+```json
+{
+  "status": "ok",
+  "mod": "webhook_commander",
+  "port": 8080
+}
+```
 
--   The mod writes `config/webhook_commander.json` on first run. Edit `port` and `authToken` there to change the webhook port or enable a bearer token.
+## Examples
 
-Debugging and logs
+### Basic Command (curl)
 
--   Run `./gradlew runClient` from the terminal to get console logs.
--   Use the IDE run configuration to attach a debugger to the running Minecraft client.
+```bash
+curl -X POST http://127.0.0.1:8080/execute \
+  -H "Content-Type: application/json" \
+  -d '{"command": "/say Hello World!"}'
+```
 
-Testing
+### PowerShell (Windows)
 
--   If the project includes tests, run:
+```powershell
+Invoke-WebRequest -Uri "http://127.0.0.1:8080/execute" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Body '{"command": "/say Hello World!"}'
+```
 
-    ```bash
-    ./gradlew test
-    ```
+### With Authentication
 
-Releasing
+```bash
+curl -X POST http://127.0.0.1:8080/execute \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-secret-token" \
+  -d '{"command": "/give @a diamond 1"}'
+```
 
--   Releases are produced by the GitHub Actions workflow in `.github/workflows/release.yml`.
--   The workflow runs only when you push a tag matching `v*` (for example `v1.0.0`). To create a release locally and trigger CI:
+### Common Commands
 
-    ```bash
-    git tag v1.0.0
-    git push origin v1.0.0
-    ```
+```bash
+# Give items to all players
+curl -X POST http://127.0.0.1:8080/execute \
+  -H "Content-Type: application/json" \
+  -d '{"command": "/give @a minecraft:diamond 64"}'
 
--   The workflow builds the project and attaches `build/libs/*.jar` to the GitHub release under Assets.
+# Spawn an entity
+curl -X POST http://127.0.0.1:8080/execute \
+  -H "Content-Type: application/json" \
+  -d '{"command": "/summon minecraft:creeper ~ ~ ~"}'
 
-Repository tips
+# Set time
+curl -X POST http://127.0.0.1:8080/execute \
+  -H "Content-Type: application/json" \
+  -d '{"command": "/time set day"}'
 
--   Keep changes focused and open a pull request for review.
--   Use the Gradle wrapper (`./gradlew`) so builds are consistent across environments.
+# Play sound
+curl -X POST http://127.0.0.1:8080/execute \
+  -H "Content-Type: application/json" \
+  -d '{"command": "/playsound minecraft:entity.ender_dragon.growl master @a"}'
 
-Troubleshooting
+# Send title
+curl -X POST http://127.0.0.1:8080/execute \
+  -H "Content-Type: application/json" \
+  -d '{"command": "/title @a title {\"text\":\"Hello!\",\"color\":\"gold\"}"}'
+```
 
--   If Gradle fails due to memory, increase JVM args in `gradle.properties` or use `ORG_GRADLE_JAVA_OPTS` environment variable.
--   If dependencies fail to download, check your network or proxy settings.
+## TikTok Integration Example
 
-Where to find code
+Here's an example Node.js handler for TikTok gift events:
 
--   Main source: `src/main/java`
--   Resources (mod metadata): `src/main/resources`
--   Build configuration: `build.gradle` and `gradle.properties`
+```javascript
+const fetch = require('node-fetch');
 
-Contact
+const WEBHOOK_URL = 'http://your-minecraft-server:8080/execute';
+const AUTH_TOKEN = 'your-secret-token'; // Optional
 
--   Open issues on GitHub for problems or feature requests: https://github.com/tmih06/TiktokIntegration/issues
+async function handleTikTokGift(gift) {
+  const command = `/say §d${gift.username}§r sent §e${gift.count}x ${gift.name}§r!`;
+  
+  const response = await fetch(WEBHOOK_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${AUTH_TOKEN}`
+    },
+    body: JSON.stringify({ command })
+  });
+  
+  const result = await response.json();
+  console.log('Command result:', result);
+}
+
+// Example: Give diamonds based on gift value
+async function handleGiftReward(gift) {
+  const diamonds = Math.floor(gift.diamondCount / 10);
+  if (diamonds > 0) {
+    await fetch(WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        command: `/give @a minecraft:diamond ${diamonds}` 
+      })
+    });
+  }
+}
+```
+
+## Troubleshooting
+
+### "Bad host name" error with curl
+Use `127.0.0.1` instead of `localhost`:
+```bash
+curl http://127.0.0.1:8080/health
+```
+
+### Cannot connect to webhook
+1. Check if the server started successfully (look for "Webhook Commander - Server Started!" in logs)
+2. Ensure the port isn't blocked by firewall
+3. Use `/tiktok status` in-game to verify the webhook is running
+
+### Debug Mode
+Enable debug mode to see all incoming requests:
+```
+/tiktok debug true
+```
+
+This will log every request, response, and command execution to the server console.
+
+## Security Considerations
+
+⚠️ **Warning**: This mod opens a network port that can execute arbitrary Minecraft commands with server-level permissions.
+
+- **Use authentication**: Always set an `authToken` in production
+- **Firewall**: Only expose the webhook port to trusted networks/IPs
+- **HTTPS**: Consider using a reverse proxy with HTTPS for external access
+- **Port Security**: Use a non-standard port and keep it private
+
+## Building from Source
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd TiktokIntegration
+
+# Build the mod
+./gradlew build
+
+# The JAR will be in build/libs/webhook-commander-1.0.0.jar
+```
+
+## License
+
+MIT License
